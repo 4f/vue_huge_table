@@ -5,110 +5,201 @@ import {registerModule as _registerModule} from '../../';
 
 let export_default = {namespaced: true};
 
-class CacheShape {
-  DIMENSION = {columns: 2 ** 5, rows: 2 ** 5}
-  MAX_SIZE = 128
-  HOT_SIZE = 32
+class CacheGrid {
+  static DIMENSION = {w: 2 ** 5, h: 2 ** 5}
+  static MAX_SIZE  = 128
+  static HOT_SIZE  = 32
   
-  width = null
-  height=  null
-  indexLastView = 0
-  first = null
-  last  = null
-  hashdata = {}
-  size = 0
+  static indexLastView = 0
+  static first         = null
+  static last          = null
+  static hashdata      = {}
+  static size          = 0
+  static tableSize     = {w: 0, h: 0}
 
-  static init(columns = 40000, rows = 40000) {
-    this.width  = Math.ceil( columns / this.DIMENSION.columns );
-    this.height = Math.ceil( rows / this.DIMENSION.rows );
+  static init({w, h}) {
+    this.tableSize = {w, h};
     this.first = new this(0, 0); //placeholder
+    this.last  = this.first;//placeholder
     this.hashdata = {};
+    return this;
   }
 
-  static getId(shapeX, shapeY) { return `${shapeX}-${shapeY}` }
+  static getId({gridX, gridY}) { return `${gridX}-${gridY}` }
 
-  static getCell(x, y) {
-    const {shapeX, shapeY} = this.getShapeCoordinate(x, y);
-    const id = this.getId(shapeX, shapeY);
-    const cachedShape = this.hashdata[id];
-    if (cachedShape) {
-      const {localX, localY} = this.getCoordinateInShape(x, y);
-      return cachedShape.getCell(localX, localY);
+  static getCell( point ) {
+    const id = this.getId( this.getGridCoordinates(point) );
+    const cachedGrid = this.hashdata[id];
+    if (cachedGrid) {
+      const {localX, localY} = this.getCoordinatesInGrid(point);
+      return cachedGrid._getCell({localX, localY});
     }
-    else
-      this.hashdata[id] = new this(shapeX, shapeY)
     return Symbol('empty');
   }
 
-  static getShapeCoordinate(x, y) {
+  static getGridCoordinates({x, y}) {
     return {
-      shapeX: Math.trunc(x / CacheShape.DIMENSION.columns),
-      shapeY: Math.trunc(y / CacheShape.DIMENSION.rows)
+      gridX: Math.trunc(x / CacheGrid.DIMENSION.w),
+      gridY: Math.trunc(y / CacheGrid.DIMENSION.h)
     }
   }
-  static getCoordinateInShape(x, y) {
+  static getCoordinatesInGrid({x, y}) {
     return {
-      localX: x % CacheShape.DIMENSION.columns,
-      localY: y % CacheShape.DIMENSION.rows
+      localX: x % CacheGrid.DIMENSION.w,
+      localY: y % CacheGrid.DIMENSION.h
     }
+  }
+  static increaseSize() {
+    this.size++;
+    if (this.size > this.MAX_SIZE){
+      const second = this.first.next;
+      delete this.hashdata[this.first.id];
+      this.first = second;
+      this.hashdata = {...this.hashdata};
+    }
+  }
+  static isInCache( point ) {
+    const id = this.getId( this.getGridCoordinates( point ) );
+    return !!this.hashdata[id];
   }
 
-  constructor(shapeX, shapeY) {
-    this.x = shapeX;
-    this.y = shapeY;
+  static getViewGridIds({x, y, width, height}) {
+    let point = {};
+    const lastX = Math.min(x + width + 2,  this.tableSize.w);
+    const lastY = Math.min(y + height + 2, this.tableSize.h);
+    let rtrnArray = [];
+    for(point.x = Math.max(0, x - 2); point.x < lastX; point.x += this.DIMENSION.w ) {
+      for(point.y = Math.max(0, y - 2); point.y < lastY; point.y += this.DIMENSION.h) {
+        rtrnArray.push( new this( this.getGridCoordinates(point) ) );
+      }
+      point.y = lastY;
+      rtrnArray.push( new this( this.getGridCoordinates(point) ) );
+    }
+    point = {x: lastX, y: lastY};
+    rtrnArray.push( new this( this.getGridCoordinates(point) ) );
+    return rtrnArray;
+  }
+
+  constructor({gridX, gridY}) {
+    this.gridPoint = {x: gridX, y: gridY};
+    this.id = CacheGrid.getId({gridX, gridY});
     this.next = null;
-    this.prev = CacheShape.last;
-    this.array = [];
+    this.prev = null;
+    this.data = [];
     this.isLoaded = false;
-    this.indexView = ++CacheShape.indexLastView;
-    CacheShape.last = this;
+    this.indexView = 0;
   }
-  getCell(x, y) {
+  getCell(point) {
     if (!this.isLoaded) return Symbol('empty');
-    if (this.indexView + CacheShape.HOT_SIZE < CacheShape.indexLastView)
-      this.indexView = 5;
+    const {localX, localY} = CacheGrid.getCoordinatesInGrid(point);
+    if (this.indexView + CacheGrid.HOT_SIZE < CacheGrid.indexLastView)
+      this.indexView = ++CacheGrid.indexLastView;
+    return this.data[localX][localY];
+  }
 
+  _getCell({localX, localY}) {
+    if (!this.isLoaded) return Symbol('empty');
+    if (this.indexView + CacheGrid.HOT_SIZE < CacheGrid.indexLastView)
+      this.indexView = ++CacheGrid.indexLastView;
+    return this.data[localX][localY];
+  }
+
+  isQuered()   { return !!CacheGrid.hashdata[this.id] }
+  putToQuery() {
+    CacheGrid.hashdata[this.id] = this;
+    this.prev = CacheGrid.last;
+    CacheGrid.last.next = this;
+    this.indexView = ++CacheGrid.indexLastView;
+    CacheGrid.increaseSize();
+  }
+  getFirstPoint(){
+    return {x: this.gridPoint.x * CacheGrid.DIMENSION.w, y: this.gridPoint.y * CacheGrid.DIMENSION.h};
+  }
+  rect() { return {...this.getFirstPoint(), ...CacheGrid.DIMENSION } }
+  setLoaded({array}) {
+    this.data = array;
+    this.isLoaded = true;
   }
 }
 
 export_default.state = () => (
   {
-    value:          6,
     firstRow:       0,
     firstColumn:    0,
     rowsInTable:    25,
     columnsInTable: 35,
     loading:        false,
     errorRequest:   false,
-    COLUMNS:        33333,
-    ROWS:           33333
+    COLUMNS:        0,
+    ROWS:           0,
+    hashdata:       {}
   }
 )
 
 export_default.getters = {
   cell: state => (x, y) => {
-    // const shapeX = x % CacheShape.DIMENSION.columns;
-    // const shapeY = y % CacheShape.DIMENSION.rows;
-    // const cacheX = x / CacheShape.DIMENSION.columns;
-    // const cacheY = y / CacheShape.DIMENSION.rows;
+    const id = CacheGrid.getId( CacheGrid.getGridCoordinates({x, y}) );
+    const grid = state.hashdata[id];
+    if ( grid )
+      return grid.getCell({x, y});
     return state.value;
   }
 }
 
 export_default.actions = {
-  getTableDimension({commit}) {
+  getTableDimension({commit, dispatch}) {
     commit('loading', true);
     getSizes()
-      .then   ( ({data}) => commit('setTableDimension', data) )
+      .then   ( ({data}) => {
+        commit('setTableDimension', data);
+        dispatch('checkViewInCache');
+      } )
       .catch  (      (e) => commit('errorRequest', e) )
       .finally(       () => commit('loading', false) );
   },
-  load ({ commit, state }, {rowStart, columnStart}) {
+  load ({ commit, state }, grid) {
     commit('loading', true);
-    getData( { rowStart, columnStart, ...CacheShape.DIMENSION } )
-      .then   ( ({data}) => commit('updateCache', data) )
+    getData( grid.rect() )
+      .then   ( ({data}) => commit('updateCache', {grid, data}) )
       .catch  (      (e) => commit('errorRequest', e) )
       .finally(       () => commit('loading', false) );
+  },
+  setTableDimension({commit, dispatch}, {columns, rows}) {
+    commit('setTableDimension', {columns, rows});
+    dispatch('checkViewInCache');
+  },
+  setFirstRow({commit, dispatch}, row) {
+    commit('setFirstRow', row);
+    dispatch('checkViewInCache');
+  },
+  setFirstColumn({commit, dispatch}, column) {
+    commit('setFirstColumn', column);
+    dispatch('checkViewInCache');
+  },
+  setRowsInTable({commit, dispatch}, rows) {
+    commit('setRowsInTable', rows);
+    dispatch('checkViewInCache');
+  },
+  setColumnsInTable({commit, dispatch}, columns) {
+    commit('setColumnsInTable', columns)
+    dispatch('checkViewInCache');
+  },
+  checkViewInCache({state, dispatch}){
+    if(!state.COLUMNS && !state.ROWS) return null;
+    const arr = CacheGrid.getViewGridIds( {
+      x: state.firstColumn,
+      y: state.firstRow,
+      width: state.columnsInTable,
+      height: state.rowsInTable
+    });
+    arr.forEach( grid => {
+      if ( !grid.isQuered() ){
+        grid.putToQuery();
+        dispatch("load", grid);
+        console.log("update", grid);
+      }
+    } )
+
   }
 }
 
@@ -116,7 +207,7 @@ export_default.mutations = {
   loading(state, b) { state.loading = b },
   errorRequest(state, bool_text) { state.errorRequest = bool_text },
   setTableDimension(state, {columns, rows}) {
-    console.log("SD", columns, rows);
+    state.hashdata = CacheGrid.init({w: columns, h: rows});
     state.COLUMNS = columns;
     state.ROWS    = rows;
   },
@@ -128,6 +219,11 @@ export_default.mutations = {
   },
   setRowsInTable(state, rows) { state.rowsInTable = rows },
   setColumnsInTable(state, columns) { state.columnsInTable = columns },
+  updateCache(state, {grid, data}) {
+    grid.setLoaded(data);
+    state.hashdata = {...state.hashdata, [grid.id]: grid };
+    console.log(grid, data);
+  }
 }
 
 

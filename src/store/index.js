@@ -1,5 +1,5 @@
 import Vue from 'vue';
-import Vuex, {mapState, mapAction, mapMutations, mapGetters } from 'vuex';
+import Vuex, {mapState, mapActions, mapMutations, mapGetters } from 'vuex';
 
 Vue.use(Vuex);
 
@@ -20,7 +20,6 @@ export const registerModule = (store, module, name) => {
   store = store || export_store;
   const moduleName = generateModuleName(store, name);
   store.registerModule(moduleName, module);
-  console.log("NAME MODULE", moduleName);
   return {
     namespace: moduleName,
     state(name){ return store.state[moduleName][name] },
@@ -30,7 +29,7 @@ export const registerModule = (store, module, name) => {
     destroy(){ store.unregisterModule(moduleName) },
 
     mapState     (list){ return mapState(moduleName, list) },
-    mapAction    (list){ return mapAction(moduleName, list) },
+    mapActions   (list){ return mapActions(moduleName, list) },
     mapGetters   (list){ return mapGetters(moduleName, list) },
     mapMutations (list){ return mapMutations(moduleName, list) },
   }

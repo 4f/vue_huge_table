@@ -216,7 +216,7 @@
       }
     },
     methods: {
-      ...tableStore.mapMutations(['setFirstRow', 'setFirstColumn', 'setRowsInTable', 'setColumnsInTable']),
+      ...tableStore.mapActions(['setFirstRow', 'setFirstColumn', 'setRowsInTable', 'setColumnsInTable']),
       isChecked(localX, localY) {
         const x = this.firstColumn + localX, y = this.firstRow + localY;
         const column = this.changedValues[x];
