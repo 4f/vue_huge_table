@@ -139,10 +139,15 @@ export_default.state = () => (
 export_default.getters = {
   cell: state => (x, y) => {
     const id = CacheGrid.getId( CacheGrid.getGridCoordinates({x, y}) );
-    const grid = state.hashdata[id];
-    if ( grid )
-      return grid.getCell({x, y});
-    return state.value;
+    const data = state.hashdata[id];
+    if ( data ) {
+      const {localX, localY} = CacheGrid.getCoordinatesInGrid({x, y});
+      return data[localX][localY];
+      // return grid.getCell({x, y});
+
+    }
+      
+    return "";
   }
 }
 
@@ -207,7 +212,7 @@ export_default.mutations = {
   loading(state, b) { state.loading = b },
   errorRequest(state, bool_text) { state.errorRequest = bool_text },
   setTableDimension(state, {columns, rows}) {
-    state.hashdata = CacheGrid.init({w: columns, h: rows});
+    CacheGrid.init({w: columns, h: rows});
     state.COLUMNS = columns;
     state.ROWS    = rows;
   },
@@ -217,12 +222,20 @@ export_default.mutations = {
   setFirstColumn(state, column) {
     state.firstColumn = Math.max(0, Math.min(column, state.COLUMNS - state.columnsInTable));
   },
-  setRowsInTable(state, rows) { state.rowsInTable = rows },
-  setColumnsInTable(state, columns) { state.columnsInTable = columns },
+  setRowsInTable(state, rows) {
+    state.rowsInTable = rows;
+    if ( state.rowsInTable + state.firstRow > state.ROWS )
+      state.firstRow = state.ROWS - state.rowsInTable;
+  },
+  setColumnsInTable(state, columns) {
+    state.columnsInTable = columns;
+    if ( state.columnsInTable + state.firstColumn > state.COLUMNS )
+      state.firstColumn = state.COLUMNS - state.columnsInTable;
+  },
   updateCache(state, {grid, data}) {
     grid.setLoaded(data);
-    state.hashdata = {...state.hashdata, [grid.id]: grid };
-    console.log(grid, data);
+    state.hashdata = {...state.hashdata, [grid.id]: grid.data };
+    console.log(grid, data, state.hashdata);
   }
 }
 

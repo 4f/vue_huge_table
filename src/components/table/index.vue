@@ -106,24 +106,23 @@
 
     <div class="middle flex11">
       
-      <div ref="wrapTable" class="wrap-table" @wheel="onscroll">
+      <div ref="wrapTable" class="wrap-table" @wheel.passive="onscroll">
         <table ref="table" :class="tableClass" :style="{width: tableWidth + 'px'}">
 
           <thead>
             <th class="square" @click="moveStart" @dblclick="moveEnd">##</th>
-            <th class="v-ruler" v-for="id in columnsInTable" :key="id" v-text="firstColumn + id"></th>
+            <th class="v-ruler" v-for="id in columnsInTable" :key="firstColumn + id" v-text="firstColumn + id"></th>
             <th class="column-blank">--</th>
           </thead>
 
           <tbody>
-            <tr class="not-blank" v-for="row_i in rowsInTable" :key="row_i">
+            <tr class="not-blank" v-for="row_i in rowsInTable" :key="firstRow + row_i">
               <td class="h-ruler" v-text="firstRow + row_i"></td>
               <td
                 class="usual"
                 :class="{changed: isChanged(column_i, row_i)}"
-                v-for="column_i in columnsInTable" :key="column_i"
-                :title="cell(column_i, row_i)
-              ">
+                v-for="column_i in columnsInTable" :key="(column_i + firstColumn) + '.' + (row_i + firstRow)"
+              >
                 <div class="wrap-flex">
                   <input
                     class="checkbox"

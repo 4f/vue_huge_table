@@ -6,7 +6,7 @@ Vue.use(Vuex);
 const isDevelop = process.env.NODE_ENV !== 'production';
 
 const export_store = new Vuex.Store({
-  strict: isDevelop
+  strict: false //isDevelop
 });
 
 const generateModuleName = (store, name, number = 0) => {
