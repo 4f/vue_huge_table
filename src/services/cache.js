@@ -71,6 +71,9 @@ class CacheGrid {
         rtrnArray.push( new this( this.getGridCoordinates(point) ) );
       }
       point = {x: lastX, y: lastY};
+      for(point.y = Math.max(0, y - this.PRELOAD_TRESHHOLD); point.y < lastY; point.y += this.DIMENSION.h) {
+        rtrnArray.push( new this( this.getGridCoordinates(point) ) );
+      }
       rtrnArray.push( new this( this.getGridCoordinates(point) ) );
       return rtrnArray;
     }

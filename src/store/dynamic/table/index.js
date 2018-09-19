@@ -15,7 +15,6 @@ export_default.state = () => (
     loading:        false,
     errorRequest:   false,
     overallSize:    {w: 0, h: 0},
-    counterCache:   0,
     changedValues:  {},
     values:         {}
   }
@@ -56,11 +55,13 @@ export_default.actions = {
   },
   checkViewInCache({state: {overallSize, viewSize, offset}, dispatch}){
     if(!overallSize.w && !overallSize.h) return null;
-    const gridArray = CacheGrid.getViewGridIds( {viewSize, offset} );
-    gridArray.forEach( grid => {
+    const gridArrayForCaching = CacheGrid.getViewGridIds( {viewSize, offset} );
+    console.log(gridArrayForCaching);
+    gridArrayForCaching.forEach( grid => {
       if ( !grid.isQuered() ){
         grid.putToQuery();
         dispatch("load", grid);
+        console.log(grid);
       }
     } )
   }
@@ -83,7 +84,7 @@ export_default.mutations = {
       state.offset.x = Math.max(0, Math.min(x, state.overallSize.w - state.viewSize.w));
     computeValues(state);
   },
-  setViewSize(state, {w, h} ) {
+  setViewSize(state, {w, h}) {
     if (w !== undefined) {
       state.viewSize.w = w;
       if ( state.overallSize.w !== 0 && w + state.offset.x > state.overallSize.w ) state.offset.x = state.overallSize.w - w;
@@ -96,10 +97,7 @@ export_default.mutations = {
   },
   updateCache(state, {grid, data}) {
     grid.setLoaded(data);
-    // state.hashdata = {...state.hashdata, [grid.id]: grid.data };
     computeValues(state);
-    state.counterCache++;
-    // console.log(grid, data, state.counterCache);
   },
   removeChangedValue({changedValues, values}, {x, y, field}) {
     let pointerX = changedValues[x];
@@ -122,11 +120,9 @@ export_default.mutations = {
 
 
 function computeValues({offset, viewSize, values, changedValues}) {
-  for(let viewX = 0; viewX < viewSize.w; viewX++ ) {
-    const x = offset.x + viewX + 1;
+  for(let x = offset.x + 1, length = viewSize.w + offset.x; x <= length; x++ ) {
     if (values[x] === undefined) Vue.set(values, x, {})
-    for(let viewY = 0; viewY < viewSize.h; viewY++) {
-      const y = offset.y + viewY + 1;
+    for(let y = offset.y + 1, length = viewSize.h + offset.y; y <= length; y++) {
       if (values[x][y] === undefined || values[x][y].value === null) {
         let setValue = {};
         
@@ -136,9 +132,7 @@ function computeValues({offset, viewSize, values, changedValues}) {
           setValue.value = CacheGrid.getCell({x, y});
         setValue.checked = setValue.checked || false;
         Vue.set(values[x], y, setValue);
-
       }
-
     }
   }
 }

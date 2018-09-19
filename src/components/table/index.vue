@@ -111,22 +111,22 @@
 
           <thead>
             <th class="square" @click="moveStart" @dblclick="moveEnd">##</th>
-            <th class="v-ruler" v-for="columnNumber in (offset.x + 1, offset.x + viewSize.w)" :key="columnNumber" v-text="columnNumber"></th>
+            <th class="v-ruler" v-for="columnNumber in columns" :key="columnNumber" v-text="columnNumber"></th>
             <th class="column-blank">--</th>
           </thead>
 
           <tbody>
-            <tr class="not-blank" v-for="row in (offset.y + 1, offset.y + viewSize.h)" :key="row">
+            <tr class="not-blank" v-for="row in rows" :key="row">
               <td class="h-ruler" v-text="row"></td>
               <td
                 class="usual"
                 :class="{changed: isChanged(column, row)}"
-                v-for="column in (offset.x + 1, offset.x + viewSize.w)" :key="column + '.' + row"
+                v-for="column in columns" :key="column + '.' + row"
               >
                 <div class="wrap-flex">
                   <input
                     class="checkbox"
-                    :checked="isChecked(column, row)"
+                    :checked="values[column][row].checked"
                     @input="oncheckbox(column, row, $event)"
                     type="checkbox"
                   />
@@ -143,7 +143,7 @@
             </tr>
             <tr class="blank">
               <td class="h-ruler">--</td>
-              <td class="usual" v-for="column in viewSize.w" :key="column"></td>
+              <td class="usual" v-for="column in columns" :key="column"></td>
               <td class="column-blank"></td>
             </tr>
           </tbody>
@@ -180,12 +180,26 @@
       tableWidth: 660 //for first cell size 10 * 66
     } },
     props: {
-      offsetRow:    { type: Number, default: 2 },
-      offsetColumn: { type: Number, default: 2 }
+      offsetRow:    { type: Number, default: 1 },
+      offsetColumn: { type: Number, default: 1 }
     },
     computed: {
       ...tableStore.mapState(["values", "changedValues", "counterCache", "overallSize", "offset", "viewSize"]),
       // ...tableStore.mapGetters(['cell']),
+      rows() {
+        const length = this.viewSize.h,
+              offset = this.offset.y;
+        let rows =  new Array(length);
+        for(let i = 0; i < length; ) rows[i] = ++i + offset
+        return rows;
+      },
+      columns() {
+        const length = this.viewSize.w,
+              offset = this.offset.x;
+        let columns =  new Array(length);
+        for(let i = 0; i < length; ) columns[i] = ++i + offset
+        return columns;
+      },
       isDisableSave() { return !Object.keys(this.changedValues).length },
       tableClass() {
         return {
@@ -218,39 +232,22 @@
     methods: {
       ...tableStore.mapMutations(['initValues', 'setChangedValue', 'removeChangedValue']),
       ...tableStore.mapActions(['setOffset', 'setViewSize']),
-      isChecked(localX, localY) {
-        const x = this.offset.x + localX, y = this.offset.y + localY;
-        const column = this.changedValues[x];
-        return column && column[y] && column[y].checked;
-      },
-      isChanged(localX, localY) {
-        const x = this.offset.x + localX, y = this.offset.y + localY;
+      isChanged(x, y) {
         const column = this.changedValues[x];
         return column && column[y];
-      },
-      getNumber(localX, localY) {
-        const x = this.offset.x + localX, y = this.offset.y + localY;
-        return this.values[x][y].value;
-        const column = this.changedValues[x];
-        const changedValue = column && column[y] && column[y].value;
-        console.log("GN", changedValue);
-        return changedValue || CacheGrid.getCell({x, y});
       },
       save() {
         console.log( JSON.stringify(this.changedValues), JSON.parse(JSON.stringify(this.changedValues)) );
       },
       moveEnd() { this.setOffset({x: this.overallSize.w, y: this.overallSize.h}) },
       moveStart() { this.setOffset({x: 0, y: 0}) },
-      oncheckbox(localX, localY, ev) {
+      oncheckbox(x, y, ev) {
         const isChecked = ev.target.checked;
-        const x = this.offset.x + localX, y = this.offset.y + localY;
         this[isChecked ? 'setChangedValue' : 'removeChangedValue']({x, y, field: 'checked', value: isChecked});
       },
-      onnumber(localX, localY, ev) {
-        const x = this.offset.x + localX, y = this.offset.y + localY;
+      onnumber(x, y, ev) {
         const serverValue = CacheGrid.getCell({x, y});
         const value = +ev.target.value || serverValue;
-        console.log("LLL", value);
         this[value === serverValue ? 'removeChangedValue' : 'setChangedValue']({x, y, field: 'value', value});
       },
       onscroll(ev) {
@@ -258,7 +255,7 @@
         const countPages = Math.round( ev.deltaY / DELTA_Y_ONE_SCROLL_PIXEL ) || 1;
         this.setOffset( ev.altKey ? {x: this.offset.x + countPages} : {y: this.offset.y + countPages} );
       },
-      onresize(ev) {
+      onresize() {
         this.setViewSize( {w: this.computeColumnsCount(), h: this.computeRowsCount()} );
         this.tableWidth = this.computeTableWidth();
       },
