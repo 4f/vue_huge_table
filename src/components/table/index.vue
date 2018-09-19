@@ -111,30 +111,30 @@
 
           <thead>
             <th class="square" @click="moveStart" @dblclick="moveEnd">##</th>
-            <th class="v-ruler" v-for="id in columnsInTable" :key="firstColumn + id" v-text="firstColumn + id"></th>
+            <th class="v-ruler" v-for="columnNumber in (offset.x + 1, offset.x + viewSize.w)" :key="columnNumber" v-text="columnNumber"></th>
             <th class="column-blank">--</th>
           </thead>
 
           <tbody>
-            <tr class="not-blank" v-for="row_i in rowsInTable" :key="firstRow + row_i">
-              <td class="h-ruler" v-text="firstRow + row_i"></td>
+            <tr class="not-blank" v-for="row in (offset.y + 1, offset.y + viewSize.h)" :key="row">
+              <td class="h-ruler" v-text="row"></td>
               <td
                 class="usual"
-                :class="{changed: isChanged(column_i, row_i)}"
-                v-for="column_i in columnsInTable" :key="(column_i + firstColumn) + '.' + (row_i + firstRow)"
+                :class="{changed: isChanged(column, row)}"
+                v-for="column in (offset.x + 1, offset.x + viewSize.w)" :key="column + '.' + row"
               >
                 <div class="wrap-flex">
                   <input
                     class="checkbox"
-                    :checked="isChecked(column_i, row_i)"
-                    @input="oncheckbox(column_i, row_i, $event)"
+                    :checked="isChecked(column, row)"
+                    @input="oncheckbox(column, row, $event)"
                     type="checkbox"
                   />
                   <input
                     class="number"
-                    :value="getNumber(column_i, row_i)"
-                    @input="onnumber(column_i, row_i, $event)"
-                    :disabled="isChecked(column_i, row_i)"
+                    :value="values[column][row].value"
+                    @input="onnumber(column, row, $event)"
+                    :disabled="values[column][row].checked"
                     type="number"
                   />
                 </div>
@@ -143,7 +143,7 @@
             </tr>
             <tr class="blank">
               <td class="h-ruler">--</td>
-              <td class="usual" v-for="column_i in columnsInTable" :key="column_i"></td>
+              <td class="usual" v-for="column in viewSize.w" :key="column"></td>
               <td class="column-blank"></td>
             </tr>
           </tbody>
@@ -168,127 +168,98 @@
 <script>
   import Scroll from './scroll';
 
+  import CacheGrid from '@/services/cache'
+
   // import {onceGlobalRegisterStoreModule as tableStore} from '../../store/dynamic/table';
-  import {registerModule} from '../../store/dynamic/table';
+  import {registerModule} from '@/store/dynamic/table';
   const tableStore = registerModule(null);
 
   export default {
     name: 'Table',
     data() { return { 
-      tableWidth: 1666,
-      changedValues: {}
+      tableWidth: 660 //for first cell size 10 * 66
     } },
     props: {
-      offsetRow:    { type: Number, default: 1 },
-      offsetColumn: { type: Number, default: 1 }
+      offsetRow:    { type: Number, default: 2 },
+      offsetColumn: { type: Number, default: 2 }
     },
     computed: {
-      ...tableStore.mapState(["ROWS", "COLUMNS", "firstRow", "firstColumn", "rowsInTable", "columnsInTable"]),
-      ...tableStore.mapGetters(['cell']),
+      ...tableStore.mapState(["values", "changedValues", "counterCache", "overallSize", "offset", "viewSize"]),
+      // ...tableStore.mapGetters(['cell']),
       isDisableSave() { return !Object.keys(this.changedValues).length },
       tableClass() {
         return {
-          top:    this.firstRow === 0,
-          bottom: this.firstRow + this.rowsInTable >= this.ROWS,
-          right:  this.firstColumn + this.columnsInTable >= this.COLUMNS,
-          left:   this.firstColumn === 0
+          top:    this.offset.y === 0,
+          bottom: this.offset.y + this.viewSize.h >= this.overallSize.h,
+          right:  this.offset.x + this.viewSize.w >= this.overallSize.w,
+          left:   this.offset.x === 0
         }
       },
       propsRightScroll() {
         return {
           side:        'right',
-          showedCount:  this.rowsInTable,
-          overallCount: this.ROWS,
-          offsetCount:  this.firstRow,
-          move:         this.setFirstRow
+          showedCount:  this.viewSize.h,
+          overallCount: this.overallSize.h,
+          offsetCount:  this.offset.y,
+          move:         y => this.setOffset({y})
         }
       },
       propsBottomScroll() {
         return {
           class:       "flex11",
           side:        'bottom',
-          showedCount:  this.columnsInTable,
-          overallCount: this.COLUMNS,
-          offsetCount:  this.firstColumn,
-          move:         this.setFirstColumn
+          showedCount:  this.viewSize.w,
+          overallCount: this.overallSize.w,
+          offsetCount:  this.offset.x,
+          move:         x => this.setOffset({x})
         }
       }
     },
     methods: {
-      ...tableStore.mapActions(['setFirstRow', 'setFirstColumn', 'setRowsInTable', 'setColumnsInTable']),
+      ...tableStore.mapMutations(['initValues', 'setChangedValue', 'removeChangedValue']),
+      ...tableStore.mapActions(['setOffset', 'setViewSize']),
       isChecked(localX, localY) {
-        const x = this.firstColumn + localX, y = this.firstRow + localY;
+        const x = this.offset.x + localX, y = this.offset.y + localY;
         const column = this.changedValues[x];
         return column && column[y] && column[y].checked;
       },
       isChanged(localX, localY) {
-        const x = this.firstColumn + localX, y = this.firstRow + localY;
+        const x = this.offset.x + localX, y = this.offset.y + localY;
         const column = this.changedValues[x];
         return column && column[y];
       },
       getNumber(localX, localY) {
-        const x = this.firstColumn + localX, y = this.firstRow + localY;
+        const x = this.offset.x + localX, y = this.offset.y + localY;
+        return this.values[x][y].value;
         const column = this.changedValues[x];
         const changedValue = column && column[y] && column[y].value;
-        return changedValue || this.cell(x, y);
+        console.log("GN", changedValue);
+        return changedValue || CacheGrid.getCell({x, y});
       },
       save() {
         console.log( JSON.stringify(this.changedValues), JSON.parse(JSON.stringify(this.changedValues)) );
       },
-      moveEnd() {
-        this.setFirstRow(this.ROWS);
-        this.setFirstColumn(this.COLUMNS);
-      },
-      moveStart() {
-        this.setFirstRow(0);
-        this.setFirstColumn(0);
-      },
+      moveEnd() { this.setOffset({x: this.overallSize.w, y: this.overallSize.h}) },
+      moveStart() { this.setOffset({x: 0, y: 0}) },
       oncheckbox(localX, localY, ev) {
         const isChecked = ev.target.checked;
-        const x = this.firstColumn + localX, y = this.firstRow + localY;
+        const x = this.offset.x + localX, y = this.offset.y + localY;
         this[isChecked ? 'setChangedValue' : 'removeChangedValue']({x, y, field: 'checked', value: isChecked});
       },
-      removeChangedValue({x, y, field}){
-        let point = this.changedValues;
-        if ( !( point[x] && point[x][y] && point[x][y][field]) ) return
-        delete point[x][y][field];
-        if (Object.keys(point[x][y]).length)
-          this.changedValues[x][y] = {...point[x][y] }
-        else {
-          delete point[x][y];
-          if (Object.keys(point[x]).length)
-            this.changedValues[x] = {...point[x]}
-          else {
-            delete point[x];
-            this.changedValues = { ...point};
-          }
-        }
-      },
-      setChangedValue({x, y, field, value}){
-        if (this.changedValues[x] === undefined)
-          this.changedValues = { ...this.changedValues, [x]: {[y]: {[field]: value}} }
-        else if (this.changedValues[x][y] === undefined)
-          this.changedValues[x] = { ...this.changedValues[x], [y]: {[field]: value} }
-        else
-          this.changedValues[x][y] = { ...this.changedValues[x][y], [field]: value }
-      },
       onnumber(localX, localY, ev) {
-        const x = this.firstColumn + localX, y = this.firstRow + localY;
-        const serverValue = this.cell(x, y);
+        const x = this.offset.x + localX, y = this.offset.y + localY;
+        const serverValue = CacheGrid.getCell({x, y});
         const value = +ev.target.value || serverValue;
+        console.log("LLL", value);
         this[value === serverValue ? 'removeChangedValue' : 'setChangedValue']({x, y, field: 'value', value});
       },
       onscroll(ev) {
         const DELTA_Y_ONE_SCROLL_PIXEL = 100;
         const countPages = Math.round( ev.deltaY / DELTA_Y_ONE_SCROLL_PIXEL ) || 1;
-        if ( ev.altKey )
-          this.setFirstColumn(this.firstColumn + countPages);
-        else
-          this.setFirstRow(this.firstRow + countPages);
+        this.setOffset( ev.altKey ? {x: this.offset.x + countPages} : {y: this.offset.y + countPages} );
       },
       onresize(ev) {
-        this.setRowsInTable(this.computeRowsCount());
-        this.setColumnsInTable(this.computeColumnsCount());
+        this.setViewSize( {w: this.computeColumnsCount(), h: this.computeRowsCount()} );
         this.tableWidth = this.computeTableWidth();
       },
       computeRowsCount(){
@@ -310,13 +281,14 @@
       }
     },
 
-
+    beforeCreate() {
+      tableStore.dispatch('getOverallSize');
+      tableStore.commit('initValues'); //init values
+    },
     mounted() {
       this.onresize();
+      this.setOffset( {x: this.offsetColumn, y: this.offsetRow} );
       window.addEventListener('resize', this.onresize);
-      this.setFirstRow(this.offsetRow);
-      this.setFirstColumn(this.offsetColumn);
-      tableStore.dispatch('getTableDimension');
     },
     beforeDestroy() {
       tableStore.destroy();

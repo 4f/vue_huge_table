@@ -1,6 +1,6 @@
 export const getSizes = () => {
   return new Promise((resolve, reject) => {
-    setTimeout(() => { resolve({data: {columns: 40000, rows: 40000}}) }, 500);
+    setTimeout(() => { resolve({data: {w: 40000, h: 40000}}) }, 500);
   } );
 }
 
