@@ -185,18 +185,17 @@
     },
     computed: {
       ...tableStore.mapState(["values", "changedValues", "counterCache", "overallSize", "offset", "viewSize"]),
-      // ...tableStore.mapGetters(['cell']),
       rows() {
         const length = this.viewSize.h,
               offset = this.offset.y;
-        let rows =  new Array(length);
+        let rows     =  new Array(length);
         for(let i = 0; i < length; ) rows[i] = ++i + offset
         return rows;
       },
       columns() {
         const length = this.viewSize.w,
               offset = this.offset.x;
-        let columns =  new Array(length);
+        let columns  =  new Array(length);
         for(let i = 0; i < length; ) columns[i] = ++i + offset
         return columns;
       },
@@ -247,7 +246,7 @@
       },
       onnumber(x, y, ev) {
         const serverValue = CacheGrid.getCell({x, y});
-        const value = +ev.target.value || serverValue;
+        const value       = +ev.target.value || serverValue;
         this[value === serverValue ? 'removeChangedValue' : 'setChangedValue']({x, y, field: 'value', value});
       },
       onscroll(ev) {
@@ -260,9 +259,9 @@
         this.tableWidth = this.computeTableWidth();
       },
       computeRowsCount(){
-        const firstRow  = this.$refs.table.querySelector('th'),
-              restRow   = this.$refs.table.querySelector('tr'),
-              heightWrap    = this.$refs.wrapTable.offsetHeight;
+        const firstRow     = this.$refs.table.querySelector('th'),
+              restRow      = this.$refs.table.querySelector('tr'),
+              heightWrap   = this.$refs.wrapTable.offsetHeight;
         return Math.floor( (heightWrap - firstRow.offsetHeight) / restRow.offsetHeight );
       },
       computeColumnsCount(){

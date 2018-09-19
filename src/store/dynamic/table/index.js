@@ -11,7 +11,7 @@ let export_default = {namespaced: true};
 export_default.state = () => (
   {
     offset:         {x: 0, y: 0},
-    viewSize:       {w: 9, h: 9},
+    viewSize:       {w: 9, h: 9},//relative to init table width
     loading:        false,
     errorRequest:   false,
     overallSize:    {w: 0, h: 0},
