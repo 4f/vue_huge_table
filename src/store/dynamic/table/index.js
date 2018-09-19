@@ -56,12 +56,10 @@ export_default.actions = {
   checkViewInCache({state: {overallSize, viewSize, offset}, dispatch}){
     if(!overallSize.w && !overallSize.h) return null;
     const gridArrayForCaching = CacheGrid.getViewGridIds( {viewSize, offset} );
-    console.log(gridArrayForCaching);
     gridArrayForCaching.forEach( grid => {
       if ( !grid.isQuered() ){
         grid.putToQuery();
         dispatch("load", grid);
-        console.log(grid);
       }
     } )
   }
@@ -136,6 +134,7 @@ function computeValues({offset, viewSize, values, changedValues}) {
     }
   }
 }
+
 
 
 export const registerModule = store => _registerModule(store, export_default, "tableStore");
