@@ -1,21 +1,4 @@
 # test
 
-## Project setup
-```
-npm install
-```
+heroku: https://vue-huge-table.herokuapp.com/
 
-### Compiles and hot-reloads for development
-```
-npm run serve
-```
-
-### Compiles and minifies for production
-```
-npm run build
-```
-
-### Lints and fixes files
-```
-npm run lint
-```
